@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}API Keys — VAPT-Framework v3{% endblock %}
+{% block page_ttl %}API Keys{% endblock %}
+{% block page_sub %}Configure API keys to unlock more subdomain sources{% endblock %}
+{% block content %}
+
+<div class="card fi mb16">
+  <div class="card-ttl">Why API Keys?</div>
+  <div class="td2 tsm" style="line-height:1.9">
+    Without API keys: subfinder uses only passive/free sources (crt.sh, wayback, DNS brute) — still finds many subdomains.<br>
+    With API keys: unlocks Shodan, Chaos, VirusTotal, SecurityTrails, GitHub, and 15+ more sources — finds <strong style="color:var(--green)">10-100x more subdomains</strong>.<br>
+    All keys are stored locally in <code>config/api_keys.json</code> and automatically written to subfinder's provider config.
+  </div>
+</div>
+
+<div class="g2">
+  <!-- Add key -->
+  <div class="card fi">
+    <div class="card-ttl">Add API Key</div>
+    <div class="fgrp">
+      <label class="flbl">Service</label>
+      <select class="fsel" id="svc">
+        <option value="shodan">Shodan (shodan.io) — student accounts work!</option>
+        <option value="github">GitHub (personal access token)</option>
+        <option value="virustotal">VirusTotal (virustotal.com — free)</option>
+        <option value="chaos">Chaos (chaos.projectdiscovery.io)</option>
+        <option value="securitytrails">SecurityTrails</option>
+        <option value="censys">Censys (format: id:secret)</option>
+        <option value="binaryedge">BinaryEdge</option>
+        <option value="fullhunt">FullHunt</option>
+        <option value="hunter">Hunter.io</option>
+        <option value="intelx">IntelX</option>
+        <option value="leakix">LeakIX</option>
+        <option value="netlas">Netlas</option>
+        <option value="whoisxmlapi">WhoisXMLAPI (free 500/month)</option>
+        <option value="zoomeye">ZoomEye</option>
+        <option value="bevigil">BeVigil</option>
+      </select>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">API Key</label>
+      <input class="finp" id="key" type="password" placeholder="Paste your API key here">
+      <div class="td2 tsm mt8">
+        Keys are stored locally only — never sent anywhere except to the API service during scanning.
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p" onclick="addKey()" style="flex:1">Save Key</button>
+      <button class="btn btn-o btn-sm" onclick="document.getElementById('key').type=document.getElementById('key').type==='password'?'text':'password'">👁 Show</button>
+    </div>
+
+    <!-- Quick setup guides -->
+    <div class="mt16">
+      <div class="card-ttl">Quick Setup — Free Keys</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <div class="card" style="background:var(--bg3);padding:12px">
+          <div style="font-weight:700;font-size:13px;color:#fff;margin-bottom:4px">🔵 Shodan Student Account</div>
+          <div class="td2 tsm">1. Go to shodan.io → Sign up with your .ac.uk or university email<br>2. Apply for academic access (free upgrade)<br>3. Go to Account → API Key → copy it</div>
+        </div>
+        <div class="card" style="background:var(--bg3);padding:12px">
+          <div style="font-weight:700;font-size:13px;color:#fff;margin-bottom:4px">🟢 VirusTotal (Free)</div>
+          <div class="td2 tsm">1. virustotal.com → Sign up free<br>2. Go to profile → API Key → copy it</div>
+        </div>
+        <div class="card" style="background:var(--bg3);padding:12px">
+          <div style="font-weight:700;font-size:13px;color:#fff;margin-bottom:4px">🐙 GitHub (Free)</div>
+          <div class="td2 tsm">1. github.com → Settings → Developer settings<br>2. Personal access tokens → Generate new token<br>3. Select: read:packages only<br>4. Copy token</div>
+        </div>
+        <div class="card" style="background:var(--bg3);padding:12px">
+          <div style="font-weight:700;font-size:13px;color:#fff;margin-bottom:4px">⚡ WhoisXML API (Free 500/mo)</div>
+          <div class="td2 tsm">1. whoisxmlapi.com → Free signup<br>2. Dashboard → API Keys → copy it</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key status -->
+  <div class="card fi d1">
+    <div class="card-hd">
+      <div class="card-ttl">Configured Keys</div>
+      <button class="btn btn-o btn-sm" onclick="loadKeys()">↻ Refresh</button>
+    </div>
+    <div id="key-status" class="td2 tsm mb16">Loading…</div>
+    <div id="key-list"></div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadKeys() {
+  const r = await fetch('/api/keys', {headers: getAuthHeaders()});
+  const d = await r.json();
+
+  const entries = Object.entries(d);
+  const configured = entries.filter(([,v]) => v.configured);
+  document.getElementById('key-status').innerHTML =
+    `<span style="color:var(--green)">${configured.length} configured</span> &nbsp;·&nbsp; ${entries.length} total sources`;
+
+  document.getElementById('key-list').innerHTML = entries.map(([svc, info]) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;background:${info.configured ? 'var(--green)' : 'var(--dim)'}"></div>
+      <div style="flex:1">
+        <div class="tm tsm" style="color:${info.configured ? '#fff' : 'var(--dim)'}; font-weight:${info.configured?700:400}">${svc}</div>
+        <div class="td2" style="font-size:10px">${info.note || ''}</div>
+      </div>
+      ${info.configured
+        ? `<span class="badge bp">${info.keys_count} key${info.keys_count>1?'s':''}</span>
+           <button class="btn btn-d btn-sm" onclick="removeKey('${svc}')">Remove</button>`
+        : `<span class="badge bi">Not set</span>`}
+    </div>`).join('');
+}
+
+async function addKey() {
+  const svc = document.getElementById('svc').value;
+  const key  = document.getElementById('key').value.trim();
+  if (!key) return alert('Enter an API key');
+  const r = await fetch('/api/keys/set', {
+    method:'POST', headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+    body: JSON.stringify({service:svc, key})
+  });
+  const d = await r.json();
+  if (d.error) return alert('Error: ' + d.error);
+  document.getElementById('key').value = '';
+  alert(`✅ API key saved for ${svc}! Subfinder config updated.`);
+  loadKeys();
+}
+
+async function removeKey(svc) {
+  if (!confirm(`Remove all keys for ${svc}?`)) return;
+  await fetch('/api/keys/remove', {
+    method:'POST', headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+    body: JSON.stringify({service: svc})
+  });
+  loadKeys();
+}
+
+loadKeys();
+</script>
+{% endblock %}

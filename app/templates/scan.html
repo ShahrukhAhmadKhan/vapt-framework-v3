@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% block title %}New Scan — VAPT-Framework v2{% endblock %}
+{% block page_ttl %}New Scan{% endblock %}
+{% block page_sub %}Configure, authorise and launch{% endblock %}
+{% block content %}
+
+<div class="g2">
+<!-- ── LEFT: config ──────────────────────────── -->
+<div>
+
+  <div class="card fi">
+    <div class="card-ttl">Target</div>
+    <div class="fgrp">
+      <label class="flbl">Target Address</label>
+      <input class="finp" id="target" placeholder="example.com · 192.168.1.1 · 10.0.0.0/24 · corp.local">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Target Type</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="ttype-grid">
+        <div class="tbtn on" data-v="domain"  onclick="selT(this)"><div style="font-size:20px;margin-bottom:5px">🌐</div><div style="font-weight:700;font-size:13px">Domain</div><div class="td2 tsm tm">Full recon + web audit</div></div>
+        <div class="tbtn"   data-v="ip"     onclick="selT(this)"><div style="font-size:20px;margin-bottom:5px">🖥</div><div style="font-weight:700;font-size:13px">IP Address</div><div class="td2 tsm tm">Host + CVE scan</div></div>
+        <div class="tbtn"   data-v="range"  onclick="selT(this)"><div style="font-size:20px;margin-bottom:5px">🔲</div><div style="font-weight:700;font-size:13px">CIDR Range</div><div class="td2 tsm tm">Network sweep</div></div>
+        <div class="tbtn"   data-v="ad"     onclick="selT(this)"><div style="font-size:20px;margin-bottom:5px">🏛</div><div style="font-weight:700;font-size:13px">Active Directory</div><div class="td2 tsm tm">LDAP, SMB, Kerberos</div></div>
+        <div class="tbtn" data-v="list" onclick="selT(this)" style="grid-column:span 2"><div style="font-size:20px;margin-bottom:5px">📄</div><div style="font-weight:700;font-size:13px">Target List File</div><div class="td2 tsm tm">Path to .txt with targets</div></div>
+      </div>
+      <input type="hidden" id="ttype" value="domain">
+    </div>
+  </div>
+
+  <div class="card mt16 fi d1">
+    <div class="card-ttl">Modules</div>
+    <div class="g-auto" id="mod-grid">
+      <div class="mpill on" data-m="recon"   onclick="togM(this)"><div class="mpill-ico">🔍</div><div class="mpill-nm">Recon</div><div class="mpill-ds">WHOIS, DNS, subdomains</div></div>
+      <div class="mpill on" data-m="scan"    onclick="togM(this)"><div class="mpill-ico">📡</div><div class="mpill-nm">Port Scan</div><div class="mpill-ds">nmap, naabu, NSE</div></div>
+      <div class="mpill on" data-m="web"     onclick="togM(this)"><div class="mpill-ico">🌐</div><div class="mpill-nm">Web Audit</div><div class="mpill-ds">nikto, nuclei, gobuster</div></div>
+      <div class="mpill on" data-m="exploit" onclick="togM(this)"><div class="mpill-ico">💀</div><div class="mpill-nm">CVE Check</div><div class="mpill-ds">EternalBlue, Log4Shell…</div></div>
+      <div class="mpill on" data-m="ad"      onclick="togM(this)"><div class="mpill-ico">🏛</div><div class="mpill-nm">AD Enum</div><div class="mpill-ds">LDAP, SMB, Kerberos</div></div>
+      <div class="mpill on" data-m="report"  onclick="togM(this)"><div class="mpill-ico">📊</div><div class="mpill-nm">Report</div><div class="mpill-ds">HTML, JSON, TXT</div></div>
+    </div>
+  </div>
+
+  <div class="card mt16 fi d2">
+    <div class="card-ttl">Authorisation — Required</div>
+    <div class="fgrp">
+      <label class="flbl">Your Full Name</label>
+      <input class="finp" id="aname" placeholder="Shahrukh Ahmad Khan">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Organisation / Client</label>
+      <input class="finp" id="aorg" placeholder="Client Ltd / Self">
+    </div>
+    <label class="cbrow" onclick="togCB()">
+      <input type="checkbox" id="acb">
+      <div class="cbbox" id="cbbox">
+        <svg id="cbtick" width="10" height="10" viewBox="0 0 12 12" fill="none" style="display:none">
+          <polyline points="1 6 5 10 11 2" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="cblbl">I confirm I have written authorisation to test this target</div>
+        <div class="cbdsc">Required. Unauthorised scanning is illegal.</div>
+      </div>
+    </label>
+  </div>
+
+  <button class="btn btn-p btn-lg w100 mt16" id="launch-btn" onclick="launch()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    Launch Scan
+  </button>
+
+</div>
+
+<!-- ── RIGHT: live output ────────────────────── -->
+<div>
+
+  <div class="term fi d1">
+    <div class="term-bar">
+      <div class="td r"></div><div class="td y"></div><div class="td g"></div>
+      <span class="term-ttl">vapt-framework v2 — live output</span>
+      <span class="term-sid" id="sid-badge"></span>
+    </div>
+    <div class="term-body" id="term">
+      <div class="ll"><span class="lts">--:--:--</span><span class="lb">[VAPT-FW]</span><span>Ready. Configure and launch a scan above.</span></div>
+    </div>
+  </div>
+
+  <!-- Overall progress bar (Acunetix/HCL style) -->
+  <div class="card mt16 fi d2" id="prog-card" style="display:none">
+    <div class="card-ttl">Scan Progress</div>
+    <!-- Overall bar -->
+    <div style="margin-bottom:16px">
+      <div class="flex sb ic" style="margin-bottom:6px">
+        <span class="tm tsm" id="overall-mod" style="color:var(--accent)">Initialising…</span>
+        <div class="flex gap8">
+          <span class="tm tsm td2" id="overall-eta"></span>
+          <span class="tm" style="font-size:15px;font-weight:800;color:#fff" id="overall-pct">0%</span>
+        </div>
+      </div>
+      <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">
+        <div id="overall-pbar" style="height:100%;width:0%;border-radius:4px;
+          background:linear-gradient(90deg,var(--purple),var(--accent));
+          transition:width .5s ease;position:relative;overflow:hidden">
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg,
+            transparent,rgba(255,255,255,0.2),transparent);
+            animation:sh 1.5s infinite"></div>
+        </div>
+      </div>
+    </div>
+    <div class="td2 tsm" style="margin-bottom:10px">Per-module status:</div>
+    <div id="prog-list"></div>
+  </div>
+
+  <div class="card mt16 fi d3" id="find-card" style="display:none">
+    <div class="card-ttl">Live Findings</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
+      <div class="stat re" style="padding:10px"><div class="stat-lbl" style="font-size:9px">CRITICAL</div><div class="stat-val" id="fc" style="font-size:22px">0</div></div>
+      <div class="stat am" style="padding:10px"><div class="stat-lbl" style="font-size:9px">HIGH</div><div class="stat-val" id="fh" style="font-size:22px">0</div></div>
+      <div class="stat am" style="padding:10px"><div class="stat-lbl" style="font-size:9px">MEDIUM</div><div class="stat-val" id="fm" style="font-size:22px">0</div></div>
+      <div class="stat ac" style="padding:10px"><div class="stat-lbl" style="font-size:9px">LOW</div><div class="stat-val" id="fl" style="font-size:22px">0</div></div>
+      <div class="stat pu" style="padding:10px"><div class="stat-lbl" style="font-size:9px">INFO</div><div class="stat-val" id="fi2" style="font-size:22px">0</div></div>
+    </div>
+    <div id="find-list"></div>
+  </div>
+
+  <div class="card mt16" id="rpt-card" style="display:none">
+    <div class="card-ttl">Report Ready</div>
+    <div class="flex ic gap16">
+      <div style="font-size:36px">📊</div>
+      <div>
+        <div style="font-weight:700;font-size:15px;color:#fff;margin-bottom:3px">Scan Complete</div>
+        <div class="td2 tsm">Full HTML, JSON and TXT reports generated.</div>
+      </div>
+      <a id="rpt-link" href="#" class="btn btn-p" style="margin-left:auto" target="_blank">Open Report →</a>
+    </div>
+  </div>
+
+</div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+// Local copy in case base.html injected version hasn't loaded yet
+if (typeof getAuthHeaders === 'undefined') {
+  window.getAuthHeaders = function() {
+    const t = localStorage.getItem('vapt_token');
+    return t ? {'X-Token': t} : {};
+  };
+}
+if (typeof esc === 'undefined') {
+  window.esc = function(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  };
+}
+
+let SID = null;
+const counts = {critical:0,high:0,medium:0,low:0,info:0};
+const cels   = {critical:'fc',high:'fh',medium:'fm',low:'fl',info:'fi2'};
+
+// Define auth helper locally (also defined in base.html but may not be ready yet)
+function _getAuthHdrs() {
+  const t = localStorage.getItem('vapt_token');
+  return t ? {'X-Token': t} : {};
+}
+
+// Pre-fill from URL
+const P = new URLSearchParams(location.search);
+if (P.get('target')) document.getElementById('target').value = P.get('target');
+if (P.get('type'))   selT(document.querySelector(`.tbtn[data-v="${P.get('type')}"]`));
+
+// View existing session
+const viewSid = P.get('session') || sessionStorage.getItem('view_session');
+if (viewSid) {
+  sessionStorage.removeItem('view_session');
+  SID = viewSid;
+  document.getElementById('sid-badge').textContent = 'SESSION ' + SID;
+  document.getElementById('prog-card').style.display = 'block';
+  document.getElementById('find-card').style.display = 'block';
+  socket.emit('join_session', {session_id: SID});
+
+  fetch('/api/session/' + SID, {headers: _getAuthHdrs()}).then(r => r.json()).then(d => {
+    if (!d || d.error) return;
+    const btn = document.getElementById('launch-btn');
+    if (d.status === 'complete') {
+      btn.innerHTML = '✓ Scan Complete'; btn.disabled = false;
+      btn.className = 'btn btn-g btn-lg w100';
+      if (d.report_path) {
+        document.getElementById('rpt-card').style.display = 'block';
+        document.getElementById('rpt-link').href = '/report-files/' + d.report_path;
+      }
+      const op = document.getElementById('overall-pbar');
+      const opct = document.getElementById('overall-pct');
+      const omod = document.getElementById('overall-mod');
+      if (op) op.style.width = '100%';
+      if (opct) opct.textContent = '100%';
+      if (omod) omod.textContent = 'COMPLETE';
+    } else if (d.status === 'running') {
+      btn.innerHTML = '⏳ Running — ' + (d.target || '') + '…';
+      btn.disabled = true;
+      btn.className = 'btn btn-p btn-lg w100';
+      // Subscribe to live updates for this session
+      socket.emit('join_session', {session_id: SID});
+    } else if (d.status === 'error') {
+      btn.innerHTML = '⚠ Error'; btn.disabled = false;
+    }
+    if (d.target) document.getElementById('target').value = d.target;
+
+    // Tally ALL findings from ALL modules
+    const findings = d.findings || {};
+
+    // CVE findings
+    (Object.values(findings.exploit || {})).forEach(exp => {
+      (exp.cve_matches || []).forEach(f => {
+        const k = (f.severity || 'info').toLowerCase();
+        if (k in counts) { counts[k]++; const el=document.getElementById(cels[k]); if(el) el.textContent=counts[k]; }
+      });
+    });
+    // Port findings
+    (Object.values(findings.scan || {})).forEach(sc => {
+      (sc.notable || []).forEach(p => {
+        const k = (p.severity || 'low').toLowerCase();
+        if (k in counts) { counts[k]++; const el=document.getElementById(cels[k]); if(el) el.textContent=counts[k]; }
+      });
+    });
+    // Nuclei findings
+    (Object.values(findings.nuclei || {})).forEach(nd => {
+      (nd.findings || []).forEach(f => {
+        const k = (f.severity || 'info').toLowerCase();
+        if (k in counts) { counts[k]++; const el=document.getElementById(cels[k]); if(el) el.textContent=counts[k]; }
+      });
+    });
+    // Path vulns
+    (Object.values(findings.paths || {})).forEach(pd => {
+      (pd.vuln_findings || []).forEach(f => {
+        const k = (f.severity || 'info').toLowerCase();
+        if (k in counts) { counts[k]++; const el=document.getElementById(cels[k]); if(el) el.textContent=counts[k]; }
+      });
+    });
+
+    // Show progress as done
+    const mods = d.modules || [];
+    const pl = document.getElementById('prog-list');
+    if (pl) {
+      pl.innerHTML = mods.map(m => `
+        <div style="margin-bottom:12px">
+          <div class="flex sb ic" style="margin-bottom:4px">
+            <span class="tm tsm">${m}</span>
+            <span class="tm tsm" style="color:var(--green)">Done ✓</span>
+          </div>
+          <div class="pbar"><div class="pfill" style="width:100%;background:var(--green)"></div></div>
+        </div>`).join('');
+    }
+
+    // Show tech if available
+    const techData = findings.tech || {};
+    Object.entries(techData).forEach(([tgt, td]) => {
+      const techs = td.technologies || [];
+      if (techs.length) {
+        const termEl = document.getElementById('term');
+        if (termEl) {
+          appendLog(termEl, '--:--:--', 'success',
+            `Tech: ${techs.join(', ')} ${td.cms ? '('+td.cms+')' : ''}`);
+        }
+      }
+    });
+
+    // Show port results
+    Object.entries(findings.scan || {}).forEach(([tgt, sd]) => {
+      const ports = sd.open_ports || [];
+      const termEl = document.getElementById('term');
+      if (termEl && ports.length) {
+        appendLog(termEl, '--:--:--', 'info',
+          `Ports: ${ports.join(', ')} (${sd.notable?.length || 0} notable)`);
+      }
+    });
+
+  }).catch(e => console.error('Session load error:', e));
+}
+
+function selT(el) {
+  if (!el) return;
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('ttype').value = el.dataset.v;
+}
+function togM(el) { el.classList.toggle('on'); }
+function togCB() {
+  const cb = document.getElementById('acb');
+  cb.checked = !cb.checked;
+  document.getElementById('cbbox').style.background  = cb.checked ? 'var(--accent)' : 'var(--bg3)';
+  document.getElementById('cbbox').style.borderColor = cb.checked ? 'var(--accent)' : 'var(--border2)';
+  document.getElementById('cbtick').style.display    = cb.checked ? 'block' : 'none';
+}
+
+function getMods() {
+  return [...document.querySelectorAll('.mpill.on')].map(p => p.dataset.m);
+}
+
+async function launch() {
+  const target  = document.getElementById('target').value.trim();
+  const type    = document.getElementById('ttype').value;
+  const name    = document.getElementById('aname').value.trim();
+  const org     = document.getElementById('aorg').value.trim();
+  const confirm = document.getElementById('acb').checked;
+  const modules = getMods();
+
+  if (!target)  return alert('Please enter a target.');
+  if (!name)    return alert('Please enter your name for the authorisation record.');
+  if (!confirm) return alert('You must confirm authorisation before scanning.');
+  if (!modules.length) return alert('Select at least one module.');
+
+  const btn = document.getElementById('launch-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span style="animation:blink 1s infinite;display:inline-block">⏳</span> Launching…';
+
+  document.getElementById('prog-card').style.display = 'block';
+  document.getElementById('find-card').style.display = 'block';
+
+  const res  = await fetch('/api/scan/start', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ target, type, modules,
+      scope: { authorised_by:name, organisation:org, confirmed:true }
+    })
+  });
+  const data = await res.json();
+  if (data.error) { alert(data.error); btn.disabled=false; return; }
+
+  SID = data.session_id;
+  document.getElementById('sid-badge').textContent = `SESSION ${SID}`;
+  socket.emit('join_session', {session_id: SID});
+
+  // Progress bars
+  document.getElementById('prog-list').innerHTML = modules.map(m => `
+    <div style="margin-bottom:12px">
+      <div class="flex sb ic" style="margin-bottom:4px">
+        <span class="tm tsm">${m}</span>
+        <span class="tm tsm td2" id="pl-${m}">Waiting…</span>
+      </div>
+      <div class="pbar"><div class="pfill" id="pb-${m}" style="width:0%"></div></div>
+    </div>`).join('');
+}
+
+socket.on('log', d => {
+  if (SID && d.session_id !== SID) return;
+  appendLog(document.getElementById('term'), d.ts, d.level, d.msg);
+});
+
+socket.on('scan_progress_bar', d => {
+  if (d.session_id !== SID) return;
+  // Overall progress bar
+  const overall = document.getElementById('overall-pbar');
+  const overallPct = document.getElementById('overall-pct');
+  const overallEta = document.getElementById('overall-eta');
+  const overallMod = document.getElementById('overall-mod');
+  if (overall) overall.style.width = d.percent + '%';
+  if (overallPct) overallPct.textContent = d.percent + '%';
+  if (overallMod) overallMod.textContent = d.module.toUpperCase();
+  if (overallEta && d.eta_seconds) {
+    const m = Math.floor(d.eta_seconds/60), s = d.eta_seconds%60;
+    overallEta.textContent = `ETA: ${m}m ${s}s`;
+  }
+});
+
+socket.on('scan_progress', d => {
+  if (d.session_id !== SID) return;
+  const pb = document.getElementById(`pb-${d.module}`);
+  const pl = document.getElementById(`pl-${d.module}`);
+  if (pb) { pb.style.width='100%'; pb.style.background='var(--green)'; }
+  if (pl) { pl.textContent='Done ✓'; pl.style.color='var(--green)'; }
+
+  // Tally exploit findings
+  if (d.module === 'exploit') {
+    (d.data.cve_matches||[]).forEach(f => {
+      const k = f.severity.toLowerCase();
+      if (k in counts) { counts[k]++; document.getElementById(cels[k]).textContent = counts[k]; }
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)';
+      row.innerHTML = `${badgeFor(f.severity)}<span class="tm tsm" style="flex:1">${esc(f.cve)} — ${esc(f.name)}</span><span class="td2 tsm">${esc(f.confidence)} confidence</span>`;
+      document.getElementById('find-list').appendChild(row);
+    });
+  }
+  if (d.module === 'scan') {
+    (d.data.notable||[]).forEach(p => {
+      const k = p.severity.toLowerCase();
+      if (k in counts) { counts[k]++; document.getElementById(cels[k]).textContent = counts[k]; }
+    });
+  }
+});
+
+socket.on('scan_status', d => {
+  if (d.session_id !== SID) return;
+  const btn = document.getElementById('launch-btn');
+  if (d.status === 'complete') {
+    btn.disabled=false;
+    btn.innerHTML='✓ Scan Complete';
+    btn.className='btn btn-g btn-lg w100';
+    if (d.report) {
+      document.getElementById('rpt-card').style.display='block';
+      document.getElementById('rpt-link').href = '/report-files/' + d.report;
+    }
+  }
+  if (d.status === 'error') {
+    btn.disabled=false;
+    btn.innerHTML='⚠ Error — Retry';
+    btn.className='btn btn-d btn-lg w100';
+  }
+});
+</script>
+{% endblock %}

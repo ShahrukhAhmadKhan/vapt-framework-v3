@@ -1,0 +1,6 @@
+flask>=3.0.0
+flask-socketio>=5.3.6
+eventlet>=0.35.0
+python-telegram-bot>=20.0
+# Optional: Wappalyzer offline fingerprinting
+# python-Wappalyzer>=0.3.1

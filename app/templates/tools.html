@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Toolbox — VAPT-Framework v2{% endblock %}
+{% block page_ttl %}Toolbox{% endblock %}
+{% block page_sub %}Tool arsenal status and auto-installer{% endblock %}
+{% block content %}
+
+<div class="card fi mb16">
+  <div class="card-hd">
+    <div class="card-ttl">Tool Arsenal</div>
+    <div class="flex gap8">
+      <button class="btn btn-o btn-sm" onclick="loadTools()">↻ Refresh</button>
+      <button class="btn btn-p btn-sm" onclick="installAll()">Auto-Install Missing</button>
+    </div>
+  </div>
+  <div id="tool-summary" class="td2 tsm mb16">Checking…</div>
+  <div id="tool-table"></div>
+</div>
+
+<div class="term fi d1">
+  <div class="term-bar">
+    <div class="td r"></div><div class="td y"></div><div class="td g"></div>
+    <span class="term-ttl">installer output</span>
+  </div>
+  <div class="term-body" id="iterm">
+    <div class="ll"><span class="lts">--:--:--</span><span class="lb">[INSTALLER]</span><span>Ready. Click "Auto-Install Missing" to begin.</span></div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadTools() {
+  const res   = await fetch('/api/tools/check');
+  const tools = await res.json();
+  const entries = Object.entries(tools);
+  const ok = entries.filter(([,v])=>v.installed).length;
+
+  document.getElementById('tool-summary').innerHTML =
+    `<span class="tg">${ok} installed</span> &nbsp;·&nbsp; <span class="tr">${entries.length-ok} missing</span> &nbsp;·&nbsp; ${entries.length} total`;
+
+  document.getElementById('tool-table').innerHTML = `
+    <div class="tw"><table>
+      <thead><tr><th>Tool</th><th>Description</th><th>Status</th></tr></thead>
+      <tbody>${entries.map(([n,i])=>`
+        <tr>
+          <td class="tm tsm">${n}</td>
+          <td class="td2 tsm">${i.desc}</td>
+          <td>${i.installed
+            ? '<span class="badge bp">✓ Installed</span>'
+            : '<span class="badge bc">✗ Missing</span>'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+async function installAll() {
+  appendLog(document.getElementById('iterm'), new Date().toLocaleTimeString(), 'banner', 'Starting auto-installer…');
+  await fetch('/api/tools/install', {method:'POST'});
+}
+
+socket.on('log', d => {
+  if (d.session_id !== 'tools') return;
+  appendLog(document.getElementById('iterm'), d.ts, d.level, d.msg);
+});
+socket.on('tool_install_done', () => {
+  appendLog(document.getElementById('iterm'), new Date().toLocaleTimeString(), 'success', 'Complete. Refreshing…');
+  loadTools();
+});
+
+loadTools();
+</script>
+{% endblock %}

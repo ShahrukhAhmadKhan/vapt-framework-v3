@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Targets — VAPT-Framework v2{% endblock %}
+{% block page_ttl %}Targets{% endblock %}
+{% block page_sub %}Manage and organise your target list{% endblock %}
+{% block content %}
+<div class="g2">
+  <div class="card fi">
+    <div class="card-ttl">Add Target</div>
+    <div class="fgrp"><label class="flbl">Host / Address</label>
+      <input class="finp" id="nt" placeholder="domain.com / 192.168.1.1 / 10.0.0.0/24"></div>
+    <div class="fgrp"><label class="flbl">Type</label>
+      <select class="fsel" id="ntt">
+        <option value="domain">Domain</option><option value="ip">IP Address</option>
+        <option value="range">CIDR Range</option><option value="ad">Active Directory</option>
+      </select></div>
+    <div class="fgrp"><label class="flbl">Notes / Scope</label>
+      <textarea class="ftxt" id="nn" placeholder="Client name, scope notes, exclusions…"></textarea></div>
+    <button class="btn btn-p w100" onclick="addT()">Add Target</button>
+  </div>
+  <div class="card fi d1">
+    <div class="card-ttl">Saved Targets</div>
+    <div id="tlist"><div class="td2 tsm" style="text-align:center;padding:32px">No targets saved yet.</div></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let targets = JSON.parse(localStorage.getItem('vf_targets')||'[]');
+
+function render() {
+  const el = document.getElementById('tlist');
+  if (!targets.length) { el.innerHTML='<div class="td2 tsm" style="text-align:center;padding:32px">No targets saved yet.</div>'; return; }
+  el.innerHTML = targets.map((t,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1">
+        <div class="tm" style="font-size:13px;color:#fff">${esc(t.host)}</div>
+        <div class="td2 tsm">${t.type}${t.notes?' — '+esc(t.notes):''}</div>
+      </div>
+      <span class="chip">${t.type}</span>
+      <a href="/scan?target=${encodeURIComponent(t.host)}&type=${t.type}" class="btn btn-o btn-sm">Scan</a>
+      <button class="btn btn-d btn-sm" onclick="del(${i})">✕</button>
+    </div>`).join('');
+}
+
+function addT() {
+  const h = document.getElementById('nt').value.trim();
+  if (!h) return;
+  targets.push({host:h, type:document.getElementById('ntt').value, notes:document.getElementById('nn').value.trim()});
+  localStorage.setItem('vf_targets', JSON.stringify(targets));
+  document.getElementById('nt').value=''; document.getElementById('nn').value='';
+  render();
+}
+function del(i) { targets.splice(i,1); localStorage.setItem('vf_targets',JSON.stringify(targets)); render(); }
+render();
+</script>
+{% endblock %}

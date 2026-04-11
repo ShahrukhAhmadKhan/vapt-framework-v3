@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Proxies — VAPT-Framework v3{% endblock %}
+{% block page_ttl %}Proxy Manager{% endblock %}
+{% block page_sub %}Static, rotating and SOCKS proxy configuration{% endblock %}
+{% block content %}
+<div class="g2">
+
+  <!-- Add proxy -->
+  <div>
+    <div class="card fi">
+      <div class="card-ttl">Add Proxy</div>
+      <div class="g2" style="gap:10px">
+        <div class="fgrp"><label class="flbl">Host / IP</label>
+          <input class="finp" id="ph" placeholder="127.0.0.1 or proxy.example.com"></div>
+        <div class="fgrp"><label class="flbl">Port</label>
+          <input class="finp" id="pp" type="number" placeholder="8080" value="8080"></div>
+      </div>
+      <div class="fgrp"><label class="flbl">Protocol</label>
+        <select class="fsel" id="pproto">
+          <option value="http">HTTP</option>
+          <option value="https">HTTPS</option>
+          <option value="socks5">SOCKS5</option>
+          <option value="socks4">SOCKS4</option>
+        </select></div>
+      <div class="g2" style="gap:10px">
+        <div class="fgrp"><label class="flbl">Username (optional)</label>
+          <input class="finp" id="pu" placeholder="username"></div>
+        <div class="fgrp"><label class="flbl">Password (optional)</label>
+          <input class="finp" id="ppw" type="password" placeholder="password"></div>
+      </div>
+      <div class="fgrp"><label class="flbl">Label</label>
+        <input class="finp" id="pl" placeholder="e.g. Residential UK, Datacenter US"></div>
+      <button class="btn btn-p w100" onclick="addProxy()">Add Proxy</button>
+    </div>
+
+    <div class="card mt16 fi d1">
+      <div class="card-ttl">Rotation Mode</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div class="tbtn" id="m-none" onclick="setMode('none')">
+          <div style="font-size:20px;margin-bottom:4px">🚫</div>
+          <div style="font-weight:700;font-size:12px">No Proxy</div>
+        </div>
+        <div class="tbtn" id="m-static" onclick="setMode('static')">
+          <div style="font-size:20px;margin-bottom:4px">🔒</div>
+          <div style="font-weight:700;font-size:12px">Static</div>
+          <div class="td2" style="font-size:10px">First proxy</div>
+        </div>
+        <div class="tbtn" id="m-rotating_rr" onclick="setMode('rotating_rr')">
+          <div style="font-size:20px;margin-bottom:4px">🔄</div>
+          <div style="font-weight:700;font-size:12px">Round Robin</div>
+        </div>
+        <div class="tbtn" id="m-rotating_random" onclick="setMode('rotating_random')" style="grid-column:span 3">
+          <div style="font-size:20px;margin-bottom:4px">🎲</div>
+          <div style="font-weight:700;font-size:12px">Random Rotation</div>
+          <div class="td2" style="font-size:10px">Random proxy per request</div>
+        </div>
+      </div>
+      <div class="mt16">
+        <button class="btn btn-o btn-sm" onclick="checkAll()">🔍 Health Check All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Proxy list -->
+  <div class="card fi d1">
+    <div class="card-hd">
+      <div class="card-ttl">Proxy List</div>
+      <span class="tm tsm td2" id="proxy-count">0 proxies</span>
+    </div>
+    <div id="proxy-list">
+      <div class="td2 tsm" style="text-align:center;padding:32px">No proxies configured.</div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<style>
+.tbtn{background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+  padding:12px;cursor:pointer;transition:all .18s;text-align:center;user-select:none}
+.tbtn:hover{border-color:var(--border2)}
+.tbtn.on{border-color:var(--accent);background:rgba(0,212,255,0.07)}
+.proxy-row{display:flex;align-items:center;gap:10px;padding:10px 0;
+  border-bottom:1px solid var(--border);flex-wrap:wrap}
+</style>
+<script>
+let proxyData = {proxies:[], mode:'none'};
+
+async function load() {
+  const r = await fetch('/api/proxies');
+  proxyData = await r.json();
+  render();
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('on'));
+  const m = document.getElementById('m-'+proxyData.mode);
+  if (m) m.classList.add('on');
+}
+
+function render() {
+  const el = document.getElementById('proxy-list');
+  document.getElementById('proxy-count').textContent = proxyData.proxies.length + ' proxies';
+  if (!proxyData.proxies.length) {
+    el.innerHTML = '<div class="td2 tsm" style="text-align:center;padding:32px">No proxies configured.</div>';
+    return;
+  }
+  el.innerHTML = proxyData.proxies.map((p,i) => {
+    const auth = p.username ? ` (auth: ${p.username})` : '';
+    const lc   = p.last_check;
+    const hc   = lc ? (lc.ok ? `<span class="badge bp">✓ ${lc.ip}</span>` : `<span class="badge bc">✗ Failed</span>`) : '';
+    return `<div class="proxy-row">
+      <div style="width:10px;height:10px;border-radius:50%;background:${p.enabled?'var(--green)':'var(--dim)'}"></div>
+      <div style="flex:1">
+        <div class="tm tsm" style="color:#fff">${p.protocol}://${p.host}:${p.port}${auth}</div>
+        <div class="td2" style="font-size:10px">${p.label||''}</div>
+      </div>
+      ${hc}
+      <button class="btn btn-o btn-sm" onclick="toggle(${i})">${p.enabled?'Disable':'Enable'}</button>
+      <button class="btn btn-d btn-sm" onclick="remove(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function addProxy() {
+  await fetch('/api/proxies/add', {method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      host:document.getElementById('ph').value.trim(),
+      port:parseInt(document.getElementById('pp').value)||8080,
+      protocol:document.getElementById('pproto').value,
+      username:document.getElementById('pu').value.trim(),
+      password:document.getElementById('ppw').value,
+      label:document.getElementById('pl').value.trim(),
+    })});
+  load();
+}
+
+async function remove(i) {
+  await fetch('/api/proxies/remove/'+i, {method:'DELETE'});
+  load();
+}
+
+async function toggle(i) {
+  await fetch('/api/proxies/toggle/'+i, {method:'POST'});
+  load();
+}
+
+async function setMode(m) {
+  await fetch('/api/proxies/mode', {method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({mode:m})});
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('on'));
+  document.getElementById('m-'+m).classList.add('on');
+  proxyData.mode = m;
+}
+
+async function checkAll() {
+  const r = await fetch('/api/proxies/check', {method:'POST'});
+  const results = await r.json();
+  proxyData.proxies = results;
+  render();
+}
+
+load();
+</script>
+{% endblock %}

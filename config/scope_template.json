@@ -1,0 +1,19 @@
+{
+  "_comment": "VAPT-Framework Scope / Authorisation File. Fill this in before scanning.",
+  "authorised_by":   "Your Full Name",
+  "organisation":    "Client Organisation or 'Self'",
+  "email":           "you@example.com",
+  "targets": [
+    "192.168.1.1",
+    "example.com",
+    "10.0.0.0/24"
+  ],
+  "scope_notes":     "Describe what is in scope and what is excluded.",
+  "exclusions": [
+    "192.168.1.254"
+  ],
+  "valid_from":      "2025-01-01T00:00:00",
+  "valid_until":     "2025-12-31T23:59:59",
+  "signature":       "AUTHORISED — [initials / ref number]",
+  "legal_ref":       "Service agreement ref / SOW number if applicable"
+}

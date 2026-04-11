@@ -1,0 +1,15 @@
+version: '3.9'
+services:
+  vapt-fw-v2:
+    build: .
+    container_name: vapt-framework-v2
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./reports:/app/reports
+      - ./config:/app/config
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    restart: unless-stopped

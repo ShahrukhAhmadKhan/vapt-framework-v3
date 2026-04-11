@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — VAPT-Framework v2{% endblock %}
+{% block page_ttl %}Dashboard{% endblock %}
+{% block page_sub %}Welcome back, Shahrukh{% endblock %}
+{% block content %}
+
+<div class="stats-grid fi">
+  <div class="stat ac d1 fi"><div class="stat-lbl">Total Scans</div><div class="stat-val" id="s-scans">—</div><div class="stat-sub">all sessions</div></div>
+  <div class="stat re d2 fi"><div class="stat-lbl">Critical Findings</div><div class="stat-val" id="s-crit">—</div><div class="stat-sub">across targets</div></div>
+  <div class="stat pu d3 fi"><div class="stat-lbl">Targets Scanned</div><div class="stat-val" id="s-tgts">—</div><div class="stat-sub">unique hosts</div></div>
+  <div class="stat gr d4 fi"><div class="stat-lbl">Reports</div><div class="stat-val" id="s-rpts">—</div><div class="stat-sub">HTML + JSON + TXT</div></div>
+</div>
+
+<div class="g2 fi d2">
+  <!-- Recent sessions -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ttl">Recent Scans</div>
+      <a href="/scan" class="btn btn-p btn-sm">+ New Scan</a>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Target</th><th>Type</th><th>Status</th><th>When</th><th></th></tr></thead>
+        <tbody id="sess-tbody">
+          <tr><td colspan="5" class="td2 tsm" style="text-align:center;padding:28px">
+            No scans yet — <a href="/scan" class="ta">launch one →</a>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Quick launch -->
+  <div class="card">
+    <div class="card-ttl">Quick Launch</div>
+    <div class="fgrp">
+      <label class="flbl">Target</label>
+      <input class="finp" id="qt" placeholder="example.com / 192.168.1.1 / 10.0.0.0/24">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Type</label>
+      <select class="fsel" id="qtt">
+        <option value="domain">Domain</option>
+        <option value="ip">IP Address</option>
+        <option value="range">CIDR Range</option>
+        <option value="ad">Active Directory</option>
+        <option value="list">Target List</option>
+      </select>
+    </div>
+    <button class="btn btn-p w100 btn-lg" onclick="ql()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Launch Full Scan
+    </button>
+    <div class="mt8" style="display:flex;flex-wrap:wrap">
+      <span class="chip">Recon</span><span class="chip">Port Scan</span>
+      <span class="chip">Web Audit</span><span class="chip">CVE Check</span>
+      <span class="chip">Report</span>
+    </div>
+  </div>
+</div>
+
+<!-- Tool status -->
+<div class="card mt16 fi d3">
+  <div class="card-hd">
+    <div class="card-ttl">Tool Arsenal Status</div>
+    <a href="/tools" class="btn btn-o btn-sm">Manage Tools →</a>
+  </div>
+  <div id="tool-strip" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px">
+    <div class="td2 tsm">Loading…</div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadDash() {
+  // Sessions
+  const sr = await fetch('/api/sessions');
+  const ss = await sr.json();
+  document.getElementById('s-scans').textContent = ss.length;
+  const tgts = new Set(ss.map(s => s.target));
+  document.getElementById('s-tgts').textContent = tgts.size;
+
+  if (ss.length) {
+    const stmap = {running:'ta',complete:'tg',error:'tr',queued:'td2'};
+    document.getElementById('sess-tbody').innerHTML = ss.slice(0,8).map(s => `
+      <tr>
+        <td class="tm tsm">${esc(s.target)}</td>
+        <td><span class="chip">${s.type}</span></td>
+        <td class="tm tsm ${stmap[s.status]||''}">${s.status}</td>
+        <td class="td2 tsm">${since(s.started)}</td>
+        <td><a href="javascript:viewScan('${s.id}')" class="ta tsm">View →</a></td>
+      </tr>`).join('');
+  }
+
+  // Reports
+  const rr = await fetch('/api/reports');
+  const rs = await rr.json();
+  document.getElementById('s-rpts').textContent = rs.length;
+
+  // Critical count
+  let crit = 0;
+  ss.forEach(s => {
+    const exp = s.findings?.exploit || {};
+    Object.values(exp).forEach(d => {
+      crit += (d.cve_matches||[]).filter(f => f.severity==='CRITICAL').length;
+    });
+  });
+  document.getElementById('s-crit').textContent = crit;
+}
+
+async function loadTools() {
+  const res   = await fetch('/api/tools/check');
+  const tools = await res.json();
+  const strip = document.getElementById('tool-strip');
+  strip.innerHTML = Object.entries(tools).map(([n,i]) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;
+         background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+      <span style="font-size:13px;color:${i.installed?'var(--green)':'var(--red)'}">${i.installed?'✓':'✗'}</span>
+      <div>
+        <div class="tm" style="font-size:11px;color:${i.installed?'var(--green)':'var(--red)'}">${n}</div>
+        <div class="td2" style="font-size:9px">${i.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+function ql() {
+  const t = document.getElementById('qt').value.trim();
+  if (!t) return alert('Enter a target');
+  location.href = `/scan?target=${encodeURIComponent(t)}&type=${document.getElementById('qtt').value}`;
+}
+
+loadDash(); loadTools();
+
+function viewScan(sid) {
+  sessionStorage.setItem('view_session', sid);
+  window.location.href = '/scan?session=' + encodeURIComponent(sid);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Settings — VAPT-Framework v3{% endblock %}
+{% block page_ttl %}Settings{% endblock %}
+{% block page_sub %}Telegram bot, notifications and framework configuration{% endblock %}
+{% block content %}
+<div class="g2">
+
+  <div>
+    <!-- Telegram Bot -->
+    <div class="card fi">
+      <div class="card-hd">
+        <div class="card-ttl">Telegram Bot</div>
+        <span class="badge" id="bot-badge">Checking…</span>
+      </div>
+      <div class="tsm td2 mb16">
+        Send <span class="tm">/scan example.com</span> to your bot and VAPT-Framework starts scanning automatically.
+        Get updates as each module completes.
+      </div>
+
+      <div class="fgrp">
+        <label class="flbl">Bot Token (from @BotFather)</label>
+        <input class="finp" id="bot-token" type="password" placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Allowed Chat IDs (comma separated)</label>
+        <input class="finp" id="bot-ids" placeholder="123456789, 987654321">
+        <div class="tsm td2 mt8">Get your chat ID: send any message to @userinfobot or use /myid command</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-p" onclick="saveBot()">Save & Start Bot</button>
+        <button class="btn btn-o" onclick="testBot()">Send Test Message</button>
+      </div>
+
+      <div class="card mt16" style="background:var(--bg3)">
+        <div class="card-ttl" style="margin-bottom:10px">Bot Commands</div>
+        <div style="font-family:var(--mono);font-size:11px;line-height:2;color:var(--text)">
+          <div><span class="ta">/scan example.com</span> — Full domain scan</div>
+          <div><span class="ta">/scan 192.168.1.1 --type ip</span> — IP scan</div>
+          <div><span class="ta">/scan 10.0.0.0/24 --type range</span> — CIDR range</div>
+          <div><span class="ta">/scan corp.local --type ad</span> — Active Directory</div>
+          <div><span class="ta">/status</span> — Active scans</div>
+          <div><span class="ta">/report &lt;id&gt;</span> — Get report link</div>
+          <div><span class="ta">/ask &lt;question&gt;</span> — Ask AI assistant</div>
+          <div><span class="ta">/tools</span> — Tool status</div>
+          <div><span class="ta">/myid</span> — Get your chat ID</div>
+        </div>
+      </div>
+
+      <div class="card mt16" style="background:var(--bg3)">
+        <div class="card-ttl" style="margin-bottom:8px">Setup Guide</div>
+        <div class="tsm td2" style="line-height:2">
+          1. Open Telegram → search <span class="tm">@BotFather</span><br>
+          2. Send <span class="tm">/newbot</span> → follow steps → copy token<br>
+          3. Paste token above → Save<br>
+          4. Start your bot → send <span class="tm">/myid</span> → copy your chat ID<br>
+          5. Add chat ID above → Save<br>
+          6. Test with <span class="tm">/scan &lt;your-test-target&gt;</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <!-- Ollama Settings -->
+    <div class="card fi">
+      <div class="card-ttl">AI Assistant (Ollama)</div>
+      <div id="ai-status-info" class="tsm td2 mb16">Checking…</div>
+      <div class="card" style="background:var(--bg3)">
+        <div class="card-ttl" style="margin-bottom:8px">Install Ollama</div>
+        <div class="tsm td2" style="line-height:2">
+          <div>Linux/Mac: <span class="tm">curl -fsSL https://ollama.com/install.sh | sh</span></div>
+          <div>Pull model: <span class="tm">ollama pull llama3.2:3b</span></div>
+          <div>Start: <span class="tm">ollama serve</span></div>
+          <div class="mt8">Recommended models for VA/PT:</div>
+          <div><span class="tm ta">llama3.2:3b</span> — Fast, good quality (2GB)</div>
+          <div><span class="tm ta">llama3.1:8b</span> — Better quality (4.7GB)</div>
+          <div><span class="tm ta">mistral:7b</span> — Security-aware (4.1GB)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Framework info -->
+    <div class="card mt16 fi d1">
+      <div class="card-ttl">Framework Info</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="flex sb ic">
+          <span class="td2 tsm">Version</span>
+          <span class="tm tsm ta">v3.0.0</span>
+        </div>
+        <div class="flex sb ic">
+          <span class="td2 tsm">Author</span>
+          <span class="tm tsm">Shahrukh Ahmad Khan</span>
+        </div>
+        <div class="flex sb ic">
+          <span class="td2 tsm">Education</span>
+          <span class="tm tsm">MSc Cybersecurity, Cambridge</span>
+        </div>
+        <div class="flex sb ic">
+          <span class="td2 tsm">Experience</span>
+          <span class="tm tsm">5+ years VAPT</span>
+        </div>
+        <div class="flex sb ic">
+          <span class="td2 tsm">GitHub</span>
+          <a href="https://github.com/ShahrukhAhmadKhan" class="ta tsm tm" target="_blank">ShahrukhAhmadKhan</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadStatus() {
+  // Bot status
+  try {
+    const r = await fetch('/api/bot/status');
+    const d = await r.json();
+    const b = document.getElementById('bot-badge');
+    b.textContent = d.running ? '✓ Running' : (d.token_set ? 'Stopped' : 'Not configured');
+    b.className   = 'badge ' + (d.running ? 'bp' : 'bi');
+  } catch(e) {}
+
+  // AI status
+  try {
+    const r = await fetch('/api/ai/status');
+    const d = await r.json();
+    document.getElementById('ai-status-info').innerHTML =
+      `<span style="color:${d.available?'var(--green)':'var(--red)'}">
+        ${d.available ? '✓ Ollama running — model: '+d.model : '✗ Ollama not running'}
+      </span>`;
+  } catch(e) {}
+}
+
+async function saveBot() {
+  const token = document.getElementById('bot-token').value.trim();
+  const ids   = document.getElementById('bot-ids').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!token) return alert('Enter your bot token');
+  await fetch('/api/bot/config', {method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({token, allowed_ids:ids})});
+  alert('✅ Bot configured and started!');
+  loadStatus();
+}
+
+async function testBot() {
+  const ids = document.getElementById('bot-ids').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if (!ids.length) return alert('Enter a chat ID first');
+  const r = await fetch('/api/bot/test', {method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({chat_id:ids[0]})});
+  const d = await r.json();
+  alert(d.ok ? '✅ Test message sent!' : '❌ Failed. Check your token and chat ID.');
+}
+
+loadStatus();
+</script>
+{% endblock %}

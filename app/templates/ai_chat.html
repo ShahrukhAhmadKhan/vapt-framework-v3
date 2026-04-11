@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}AI Assistant — VAPT-Framework v3{% endblock %}
+{% block page_ttl %}AI Assistant{% endblock %}
+{% block page_sub %}Local Ollama model — VA/PT guidance, finding explanation, next steps{% endblock %}
+{% block content %}
+<div class="g2" style="height:calc(100vh - 120px)">
+
+  <!-- Chat -->
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <div class="card-hd">
+        <div class="card-ttl">Chat</div>
+        <div class="flex gap8">
+          <span class="badge" id="ai-status-badge">Checking…</span>
+          <button class="btn btn-o btn-sm" onclick="clearChat()">Clear</button>
+        </div>
+      </div>
+      <div id="chat-box" style="flex:1;overflow-y:auto;padding:4px 0;min-height:0;max-height:55vh">
+        <div class="chat-msg ai">
+          <div class="chat-bubble">
+            👋 Hi! I'm your local AI penetration testing assistant.<br><br>
+            I can help with:<br>
+            • Explaining vulnerabilities and CVEs<br>
+            • Suggesting next steps from scan results<br>
+            • Writing executive summaries<br>
+            • Tool usage and commands<br>
+            • General VA/PT questions<br><br>
+            Ask me anything!
+          </div>
+        </div>
+      </div>
+      <div class="mt16" style="display:flex;gap:8px">
+        <textarea class="ftxt" id="chat-input" placeholder="Ask about a finding, CVE, tool usage, next steps…"
+          style="flex:1;min-height:60px;resize:none" onkeydown="handleKey(event)"></textarea>
+        <button class="btn btn-p" id="send-btn" onclick="sendMsg()" style="align-self:flex-end;padding:12px 16px">
+          ➤
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick prompts + model info -->
+  <div>
+    <div class="card fi">
+      <div class="card-ttl">Quick Prompts</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-o" style="text-align:left;justify-content:flex-start" onclick="quickPrompt('What are the most critical things to check after finding port 445 open?')">🔴 Port 445 open — what next?</button>
+        <button class="btn btn-o" style="text-align:left;justify-content:flex-start" onclick="quickPrompt('Explain EternalBlue (MS17-010) and how to verify if a system is vulnerable')">💀 Explain EternalBlue</button>
+        <button class="btn btn-o" style="text-align:left;justify-content:flex-start" onclick="quickPrompt('What nuclei template tags should I run against a WordPress site?')">🌐 WordPress nuclei tags</button>
+        <button class="btn btn-o" style="text-align:left;justify-content:flex-start" onclick="quickPrompt('How do I enumerate Active Directory without credentials?')">🏛 AD enumeration guide</button>
+        <button class="btn btn-o" style="text-align:left;justify-content:flex-start" onclick="quickPrompt('Write a professional executive summary for a pentest with 2 critical, 5 high findings')">📊 Executive summary template</button>
+        <button class="btn btn-o" style="text-align:left;justify-content:flex-start" onclick="quickPrompt('What does CVSS score 9.8 mean and what should I do about it?')">📈 Explain CVSS 9.8</button>
+        <button class="btn btn-o" style="text-align:left;justify-content:flex-start" onclick="quickPrompt('Give me a methodology checklist for a web application penetration test')">✅ Web app pentest checklist</button>
+        <button class="btn btn-o" style="text-align:left;justify-content:flex-start" onclick="quickPrompt('What is Log4Shell and which systems are affected?')">🔥 Log4Shell explained</button>
+      </div>
+    </div>
+
+    <div class="card mt16 fi d1">
+      <div class="card-ttl">Model Status</div>
+      <div id="model-info">
+        <div class="td2 tsm">Checking Ollama…</div>
+      </div>
+      <div class="mt16">
+        <div class="fgrp">
+          <label class="flbl">Model</label>
+          <select class="fsel" id="model-sel" onchange="setModel()">
+            <option value="llama3.2:3b">llama3.2:3b (recommended, fast)</option>
+            <option value="llama3.1:8b">llama3.1:8b (better quality)</option>
+            <option value="mistral:7b">mistral:7b</option>
+            <option value="codellama:7b">codellama:7b (code focus)</option>
+            <option value="phi3:mini">phi3:mini (smallest)</option>
+          </select>
+        </div>
+        <div class="tsm td2 mt8">Install Ollama: <span class="tm">curl -fsSL https://ollama.com/install.sh | sh</span></div>
+        <div class="tsm td2">Pull model: <span class="tm">ollama pull llama3.2:3b</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<style>
+.chat-msg { margin-bottom:14px; display:flex; }
+.chat-msg.user { justify-content:flex-end; }
+.chat-msg.ai   { justify-content:flex-start; }
+.chat-bubble {
+  max-width:85%; padding:10px 14px; border-radius:12px;
+  font-size:13px; line-height:1.65; white-space:pre-wrap;
+}
+.chat-msg.user .chat-bubble {
+  background:linear-gradient(135deg,var(--purple),var(--accent));
+  color:#fff; border-bottom-right-radius:3px;
+}
+.chat-msg.ai .chat-bubble {
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--text); border-bottom-left-radius:3px;
+}
+.typing { display:inline-block; }
+.typing span { animation:blink 1s infinite; }
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+</style>
+<script>
+let currentModel = 'llama3.2:3b';
+let aiMsgEl = null;
+
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/ai/status');
+    const d = await r.json();
+    const badge = document.getElementById('ai-status-badge');
+    badge.textContent   = d.available ? '✓ Online' : '✗ Offline';
+    badge.className     = 'badge ' + (d.available ? 'bp' : 'bc');
+    document.getElementById('model-info').innerHTML = `
+      <div class="tm tsm" style="color:${d.available?'var(--green)':'var(--red)'}">
+        ${d.available ? '✓ Ollama running' : '✗ Ollama not running'}
+      </div>
+      <div class="td2 tsm mt8">Model: <span class="tm ta">${d.model}</span></div>
+      ${d.models.length ? '<div class="td2 tsm mt8">Available: '+d.models.map(m=>`<span class="chip">${m}</span>`).join('')+'</div>' : ''}`;
+    if (d.models.length) {
+      const sel = document.getElementById('model-sel');
+      d.models.forEach(m => {
+        if (![...sel.options].find(o => o.value===m)) {
+          sel.add(new Option(m,m));
+        }
+      });
+    }
+  } catch(e) {
+    document.getElementById('ai-status-badge').textContent = '✗ Offline';
+  }
+}
+
+function setModel() {
+  currentModel = document.getElementById('model-sel').value;
+}
+
+function addMsg(role, text) {
+  const box = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+  div.innerHTML = `<div class="chat-bubble">${esc(text)}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div.querySelector('.chat-bubble');
+}
+
+async function sendMsg() {
+  const inp = document.getElementById('chat-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+
+  addMsg('user', msg);
+
+  // Typing indicator
+  const box = document.getElementById('chat-box');
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'chat-msg ai';
+  typingDiv.innerHTML = '<div class="chat-bubble"><span class="typing"><span>●</span><span>●</span><span>●</span></span></div>';
+  box.appendChild(typingDiv);
+  box.scrollTop = box.scrollHeight;
+
+  document.getElementById('send-btn').disabled = true;
+
+  // Stream via WebSocket
+  let fullReply = '';
+  let replyBubble = null;
+
+  socket.emit('ai_chat', {session_id:'ai', message:msg});
+
+  function onToken(d) {
+    if (d.session_id !== 'ai') return;
+    if (!replyBubble) {
+      typingDiv.remove();
+      const rdiv = document.createElement('div');
+      rdiv.className = 'chat-msg ai';
+      rdiv.innerHTML = '<div class="chat-bubble"></div>';
+      box.appendChild(rdiv);
+      replyBubble = rdiv.querySelector('.chat-bubble');
+    }
+    fullReply += d.token;
+    replyBubble.textContent = fullReply;
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function onDone(d) {
+    if (d.session_id !== 'ai') return;
+    document.getElementById('send-btn').disabled = false;
+    socket.off('ai_token', onToken);
+    socket.off('ai_done',  onDone);
+  }
+
+  socket.on('ai_token', onToken);
+  socket.on('ai_done',  onDone);
+}
+
+function quickPrompt(text) {
+  document.getElementById('chat-input').value = text;
+  sendMsg();
+}
+
+function handleKey(e) {
+  if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+}
+
+async function clearChat() {
+  await fetch('/api/ai/clear', {method:'POST'});
+  document.getElementById('chat-box').innerHTML = '<div class="chat-msg ai"><div class="chat-bubble">Chat cleared. Ask me anything!</div></div>';
+}
+
+loadStatus();
+</script>
+{% endblock %}

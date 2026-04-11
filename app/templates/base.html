@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}VAPT-Framework v2{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/main.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="logo-wrap">
+    <div class="logo-mark">⚡</div>
+    <div>
+      <div class="logo-name">VAPT-FW</div>
+      <div class="logo-ver">v2.0</div>
+    </div>
+  </div>
+
+  <div class="nav-group">
+    <span class="nav-lbl">Workspace</span>
+    <a href="/"        class="nav-a {% if request.path=='/' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <a href="/scan"    class="nav-a {% if request.path=='/scan' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      New Scan
+    </a>
+    <a href="/targets" class="nav-a {% if request.path=='/targets' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      Targets
+    </a>
+  </div>
+
+  <div class="nav-group">
+    <span class="nav-lbl">Advanced</span>
+    <a href="/proxies"       class="nav-a {% if request.path=='/proxies' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      Proxies
+    </a>
+    <a href="/sessions-page" class="nav-a {% if request.path=='/sessions-page' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Auth Sessions
+    </a>
+    <a href="/ai-chat"       class="nav-a {% if request.path=='/ai-chat' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      AI Assistant
+    </a>
+    <a href="/api-keys"      class="nav-a {% if request.path=='/api-keys' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+      API Keys
+    </a>
+    <a href="/settings"      class="nav-a {% if request.path=='/settings' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </a>
+  </div>
+
+  <div class="nav-group">
+    <span class="nav-lbl">Output</span>
+    <a href="/reports" class="nav-a {% if request.path=='/reports' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Reports
+    </a>
+    <a href="/tools"   class="nav-a {% if request.path=='/tools' %}on{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      Toolbox
+    </a>
+  </div>
+
+  <div class="sidebar-foot">
+    <a href="/admin" class="nav-a" style="margin-bottom:8px;font-size:11px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Admin Panel
+    </a>
+    <div class="user-row">
+      <div class="user-av">S</div>
+      <div style="flex:1">
+        <div class="user-nm">Shahrukh Khan</div>
+        <div class="user-rl">admin · VAPT-Framework</div>
+      </div>
+      <button onclick="logout()" title="Logout" style="background:none;border:none;cursor:pointer;color:var(--dim);padding:4px" >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="topbar">
+    <div class="page-hd">
+      <h1 class="page-ttl">{% block page_ttl %}Dashboard{% endblock %}</h1>
+      <span class="page-sub">{% block page_sub %}{% endblock %}</span>
+    </div>
+    <div class="topbar-r">
+      <div class="status-pill" id="status-pill">
+        <span class="pill-dot" id="pill-dot" style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite"></span>
+        <span id="pill-lbl">System Ready</span>
+      </div>
+      <div class="clock" id="clock"></div>
+    </div>
+  </div>
+
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
+<!-- Injected auth + global helpers -->
+<script>
+function getAuthHeaders() {
+  const t = localStorage.getItem('vapt_token');
+  return t ? {'X-Token': t} : {};
+}
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// Auth check on every page (skip on /login)
+(async function(){
+  if (window.location.pathname === '/login') return;
+  const t = localStorage.getItem('vapt_token');
+  if (!t) { window.location.href='/login'; return; }
+  try {
+    const r = await fetch('/api/auth/verify', {headers:{'X-Token':t}});
+    const d = await r.json();
+    if (!d.valid) { localStorage.removeItem('vapt_token'); window.location.href='/login'; return; }
+    // Update user info in sidebar
+    const nm = document.querySelector('.user-nm');
+    const rl = document.querySelector('.user-rl');
+    const av = document.querySelector('.user-av');
+    if (nm) nm.textContent = d.username;
+    if (rl) rl.textContent = d.role + ' · VAPT-Framework';
+    if (av) av.textContent = d.username[0].toUpperCase();
+  } catch(e){ window.location.href='/login'; }
+})();
+function logout(){
+  fetch('/api/auth/logout',{method:'POST',headers:getAuthHeaders()})
+    .finally(()=>{ localStorage.removeItem('vapt_token'); window.location.href='/login'; });
+}
+</script>

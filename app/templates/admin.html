@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}Admin — VAPT-Framework v3{% endblock %}
+{% block page_ttl %}User Management{% endblock %}
+{% block page_sub %}Admin panel — create users, manage MFA, audit log{% endblock %}
+{% block content %}
+
+<div class="g2">
+  <!-- Create user -->
+  <div>
+    <div class="card fi">
+      <div class="card-ttl">Create User</div>
+      <div class="fgrp">
+        <label class="flbl">Username</label>
+        <input class="finp" id="nu" placeholder="john.doe">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Password (min 8 chars)</label>
+        <input class="finp" id="np" type="password" placeholder="••••••••">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Role</label>
+        <select class="fsel" id="nr">
+          <option value="analyst">Analyst — can run scans, view reports</option>
+          <option value="viewer">Viewer — view reports only</option>
+          <option value="admin">Admin — full access</option>
+        </select>
+      </div>
+      <button class="btn btn-p w100" onclick="createUser()">Create User</button>
+    </div>
+
+    <!-- MFA Setup (for current user) -->
+    <div class="card mt16 fi d1">
+      <div class="card-ttl">My MFA Settings</div>
+      <div id="mfa-status-msg" class="td2 tsm mb16">Loading…</div>
+      <div id="mfa-qr-section" style="display:none">
+        <div class="card" style="background:var(--bg3);text-align:center;padding:20px;margin-bottom:16px">
+          <img id="mfa-qr" src="" alt="QR Code"
+               style="width:200px;height:200px;border-radius:8px;background:#fff;padding:8px">
+          <div id="mfa-uri-fallback" style="display:none;margin-top:8px">
+            <div class="td2 tsm">QR could not load. Open this URL in your authenticator:</div>
+            <div id="mfa-uri-text" class="tm" style="font-size:9px;word-break:break-all;margin-top:4px;color:var(--accent)"></div>
+          </div>
+          <div class="tm tsm ta mt8" id="mfa-secret-txt" style="color:var(--accent)"></div>
+          <div class="td2 tsm mt8">Scan with Google Authenticator or Authy</div>
+        </div>
+        <div id="mfa-manual" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div class="flbl">Manual entry — paste this secret into your app:</div>
+          <div id="mfa-secret-display" class="tm" style="font-size:13px;color:var(--accent);margin-top:6px;letter-spacing:2px;word-break:break-all"></div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Enter 6-digit code to confirm</label>
+          <input class="finp" id="mfa-code" placeholder="000000" maxlength="6">
+        </div>
+        <button class="btn btn-p w100" onclick="enableMFA()">Enable MFA</button>
+      </div>
+      <div id="mfa-action-btns" class="flex gap8" style="display:none!important">
+        <button class="btn btn-o" id="btn-setup-mfa" onclick="setupMFA()">Setup MFA</button>
+        <button class="btn btn-d" id="btn-disable-mfa" onclick="disableMFA()" style="display:none">Disable MFA</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- User list -->
+  <div class="card fi d1">
+    <div class="card-hd">
+      <div class="card-ttl">All Users</div>
+      <span id="user-count" class="td2 tsm"></span>
+    </div>
+    <div id="user-list">
+      <div class="td2 tsm" style="text-align:center;padding:32px">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Audit log -->
+<div class="card mt16 fi d2">
+  <div class="card-hd">
+    <div class="card-ttl">Audit Log</div>
+    <button class="btn btn-o btn-sm" onclick="loadAudit()">↻ Refresh</button>
+  </div>
+  <div id="audit-log" class="tm" style="font-size:11px;line-height:1.9;max-height:280px;overflow-y:auto;color:var(--text)">
+    Loading…
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const ME = '{{ current_user }}';
+
+// Load users
+async function loadUsers() {
+  const r = await fetch('/api/users', {headers:getAuthHeaders()});
+  const d = await r.json();
+  const el = document.getElementById('user-list');
+  document.getElementById('user-count').textContent = d.length + ' users';
+
+  const roleColors = {admin:'bc',analyst:'bl',viewer:'bi'};
+  el.innerHTML = d.map(u => `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="width:36px;height:36px;border-radius:8px;flex-shrink:0;
+           background:linear-gradient(135deg,var(--purple),var(--accent));
+           display:flex;align-items:center;justify-content:center;
+           font-weight:800;color:#fff;font-size:15px">
+        ${u.username[0].toUpperCase()}
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px;color:#fff">${esc(u.username)}</div>
+        <div class="td2 tsm">Last login: ${u.last_login ? u.last_login.slice(0,16) : 'Never'}</div>
+        <div class="td2 tsm">MFA: ${u.mfa_enabled ? '<span style="color:var(--green)">✓ Enabled</span>' : '<span style="color:var(--dim)">Off</span>'}</div>
+      </div>
+      <span class="badge ${roleColors[u.role]||'bi'}">${u.role}</span>
+      <span class="badge ${u.active ? 'bp' : 'bc'}">${u.active ? 'Active' : 'Locked'}</span>
+      ${u.username !== ME ? `<button class="btn btn-d btn-sm" onclick="removeUser('${esc(u.username)}')">✕</button>` : '<span class="badge bi">You</span>'}
+    </div>`).join('');
+}
+
+async function createUser() {
+  const un = document.getElementById('nu').value.trim();
+  const pw = document.getElementById('np').value;
+  const rl = document.getElementById('nr').value;
+  if (!un || !pw) return alert('Fill in all fields');
+
+  const r = await fetch('/api/users/create', {
+    method:'POST', headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+    body: JSON.stringify({username:un, password:pw, role:rl})
+  });
+  const d = await r.json();
+  if (d.error) return alert('Error: ' + d.error);
+  document.getElementById('nu').value = '';
+  document.getElementById('np').value = '';
+  loadUsers(); loadAudit();
+  alert('User ' + un + ' created!');
+}
+
+async function removeUser(username) {
+  if (!confirm(`Remove user "${username}"? This cannot be undone.`)) return;
+  const r = await fetch('/api/users/remove/'+username, {
+    method:'DELETE', headers:getAuthHeaders()
+  });
+  const d = await r.json();
+  if (d.error) return alert('Error: ' + d.error);
+  loadUsers(); loadAudit();
+}
+
+// MFA
+async function loadMFAStatus() {
+  const r = await fetch('/api/auth/me', {headers:getAuthHeaders()});
+  const d = await r.json();
+  const msg = document.getElementById('mfa-status-msg');
+  const btns = document.getElementById('mfa-action-btns');
+  btns.style.display = 'flex';
+
+  if (d.mfa_enabled) {
+    msg.innerHTML = '<span style="color:var(--green)">✓ MFA is enabled on your account</span>';
+    document.getElementById('btn-disable-mfa').style.display = 'block';
+    document.getElementById('btn-setup-mfa').style.display   = 'none';
+  } else {
+    msg.innerHTML = '<span style="color:var(--dim)">MFA is not enabled — add extra security</span>';
+    document.getElementById('btn-disable-mfa').style.display = 'none';
+    document.getElementById('btn-setup-mfa').style.display   = 'block';
+  }
+}
+
+async function setupMFA() {
+  const r = await fetch('/api/auth/mfa/setup', {
+    method:'POST', headers:getAuthHeaders()
+  });
+  const d = await r.json();
+  if (d.error) return alert(d.error);
+
+  // Show QR section
+  document.getElementById('mfa-qr-section').style.display = 'block';
+  document.getElementById('mfa-secret-txt').textContent = 'Secret: ' + d.secret;
+  document.getElementById('mfa-code').focus();
+
+  // Try Google Charts first, fallback to qr-server.com
+  const uri = encodeURIComponent(d.uri || '');
+  const qrEl = document.getElementById('mfa-qr');
+
+  // Primary: Google Charts
+  const googleUrl = `https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=${uri}`;
+  qrEl.src = googleUrl;
+  qrEl.onerror = function() {
+    // Fallback: api.qrserver.com
+    qrEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${uri}`;
+    qrEl.onerror = function() {
+      // Last resort: show URI as text
+      qrEl.style.display = 'none';
+      document.getElementById('mfa-uri-fallback').style.display = 'block';
+      document.getElementById('mfa-uri-text').textContent = d.uri || '';
+    };
+  };
+
+  // Also show manual entry in case QR fails
+  document.getElementById('mfa-manual').style.display = 'block';
+  document.getElementById('mfa-secret-display').textContent = d.secret || '';
+}
+
+async function enableMFA() {
+  const code = document.getElementById('mfa-code').value.trim();
+  if (code.length !== 6) return alert('Enter 6-digit code');
+  const r = await fetch('/api/auth/mfa/enable', {
+    method:'POST', headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+    body: JSON.stringify({code})
+  });
+  const d = await r.json();
+  if (d.error) return alert('Error: ' + d.error);
+  alert('✅ MFA enabled! You will need your authenticator on next login.');
+  document.getElementById('mfa-qr-section').style.display = 'none';
+  loadMFAStatus(); loadAudit();
+}
+
+async function disableMFA() {
+  if (!confirm('Disable MFA? Your account will be less secure.')) return;
+  const r = await fetch('/api/auth/mfa/disable', {
+    method:'POST', headers:getAuthHeaders()
+  });
+  const d = await r.json();
+  if (d.error) return alert(d.error);
+  alert('MFA disabled.');
+  loadMFAStatus(); loadAudit();
+}
+
+async function loadAudit() {
+  const r = await fetch('/api/users/audit', {headers:getAuthHeaders()});
+  const d = await r.json();
+  const el = document.getElementById('audit-log');
+  el.innerHTML = d.lines.reverse().map(l => {
+    const color = l.includes('failed')||l.includes('locked') ? 'var(--red)' :
+                  l.includes('success')||l.includes('enabled') ? 'var(--green)' : 'var(--text)';
+    return `<div style="color:${color}">${esc(l)}</div>`;
+  }).join('');
+}
+
+loadUsers(); loadMFAStatus(); loadAudit();
+</script>
+{% endblock %}

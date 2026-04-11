@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Auth Sessions — VAPT-Framework v3{% endblock %}
+{% block page_ttl %}Auth Sessions{% endblock %}
+{% block page_sub %}Login credentials, cookies and API tokens for authenticated scanning{% endblock %}
+{% block content %}
+<div class="g2">
+  <div>
+    <div class="card fi">
+      <div class="card-ttl">New Session</div>
+      <div class="fgrp">
+        <label class="flbl">Session Name</label>
+        <input class="finp" id="sn" placeholder="e.g. admin-panel, api-token">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Auth Type</label>
+        <select class="fsel" id="st" onchange="switchType()">
+          <option value="basic">Basic Auth (username/password)</option>
+          <option value="form">Form Login (POST login page)</option>
+          <option value="cookie">Cookie Injection</option>
+          <option value="token">API Token / Bearer</option>
+        </select>
+      </div>
+
+      <!-- Basic / Form shared fields -->
+      <div id="f-basic">
+        <div class="g2" style="gap:10px">
+          <div class="fgrp"><label class="flbl">Username</label>
+            <input class="finp" id="s-user" placeholder="admin"></div>
+          <div class="fgrp"><label class="flbl">Password</label>
+            <input class="finp" id="s-pass" type="password" placeholder="password"></div>
+        </div>
+      </div>
+
+      <!-- Form extra -->
+      <div id="f-form" style="display:none">
+        <div class="fgrp"><label class="flbl">Login URL</label>
+          <input class="finp" id="s-url" placeholder="https://example.com/login"></div>
+        <div class="g2" style="gap:10px">
+          <div class="fgrp"><label class="flbl">Username Field Name</label>
+            <input class="finp" id="s-ufield" placeholder="username" value="username"></div>
+          <div class="fgrp"><label class="flbl">Password Field Name</label>
+            <input class="finp" id="s-pfield" placeholder="password" value="password"></div>
+        </div>
+      </div>
+
+      <!-- Cookie -->
+      <div id="f-cookie" style="display:none">
+        <div class="fgrp"><label class="flbl">Raw Cookie String</label>
+          <textarea class="ftxt" id="s-cookies" placeholder="session=abc123; csrf=xyz789; auth=token..."></textarea></div>
+      </div>
+
+      <!-- Token -->
+      <div id="f-token" style="display:none">
+        <div class="fgrp"><label class="flbl">Token Value</label>
+          <input class="finp" id="s-token" placeholder="eyJhbGciOi..."></div>
+        <div class="g2" style="gap:10px">
+          <div class="fgrp"><label class="flbl">Header Name</label>
+            <input class="finp" id="s-header" value="Authorization"></div>
+          <div class="fgrp"><label class="flbl">Prefix</label>
+            <input class="finp" id="s-prefix" value="Bearer"></div>
+        </div>
+      </div>
+
+      <div class="fgrp mt8">
+        <label class="flbl">Target (optional — for reference)</label>
+        <input class="finp" id="s-target" placeholder="example.com">
+      </div>
+      <button class="btn btn-p w100" onclick="addSession()">Save Session</button>
+    </div>
+  </div>
+
+  <div class="card fi d1">
+    <div class="card-ttl">Saved Sessions</div>
+    <div id="sess-list">
+      <div class="td2 tsm" style="text-align:center;padding:32px">No sessions saved yet.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function switchType() {
+  const t = document.getElementById('st').value;
+  document.getElementById('f-basic').style.display  = ['basic','form'].includes(t)?'block':'none';
+  document.getElementById('f-form').style.display   = t==='form'?'block':'none';
+  document.getElementById('f-cookie').style.display = t==='cookie'?'block':'none';
+  document.getElementById('f-token').style.display  = t==='token'?'block':'none';
+}
+
+async function load() {
+  const r = await fetch('/api/auth-sessions');
+  const d = await r.json();
+  const el = document.getElementById('sess-list');
+  if (!d.sessions.length) {
+    el.innerHTML='<div class="td2 tsm" style="text-align:center;padding:32px">No sessions saved yet.</div>';
+    return;
+  }
+  const typeIcons = {basic:'🔑',form:'📝',cookie:'🍪',token:'🎫'};
+  el.innerHTML = d.sessions.map(s => `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:20px">${typeIcons[s.type]||'🔐'}</div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px;color:#fff">${esc(s.name)}</div>
+        <div class="td2 tsm">${s.type} ${s.target?' → '+esc(s.target):''}</div>
+        <div class="tm" style="font-size:10px;color:${s.status==='authenticated'?'var(--green)':s.status==='failed'?'var(--red)':'var(--dim)'}">${s.status}</div>
+      </div>
+      ${s.type==='form' ? `<button class="btn btn-o btn-sm" onclick="auth('${esc(s.name)}')">Authenticate</button>` : ''}
+      <button class="btn btn-d btn-sm" onclick="del('${esc(s.name)}')">✕</button>
+    </div>`).join('');
+}
+
+async function addSession() {
+  const t = document.getElementById('st').value;
+  const body = {
+    name:   document.getElementById('sn').value.trim(),
+    type:   t,
+    target: document.getElementById('s-target').value.trim(),
+  };
+  if (t==='basic'||t==='form') {
+    body.username = document.getElementById('s-user').value;
+    body.password = document.getElementById('s-pass').value;
+  }
+  if (t==='form') {
+    body.login_url      = document.getElementById('s-url').value;
+    body.username_field = document.getElementById('s-ufield').value;
+    body.password_field = document.getElementById('s-pfield').value;
+  }
+  if (t==='cookie') body.cookies = document.getElementById('s-cookies').value;
+  if (t==='token') {
+    body.token  = document.getElementById('s-token').value;
+    body.header = document.getElementById('s-header').value;
+    body.prefix = document.getElementById('s-prefix').value;
+  }
+  if (!body.name) return alert('Session name required');
+  await fetch('/api/auth-sessions/add', {method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  load();
+}
+
+async function auth(name) {
+  const r = await fetch('/api/auth-sessions/authenticate/'+encodeURIComponent(name), {method:'POST'});
+  const d = await r.json();
+  alert(d.ok ? '✅ Authenticated! Cookies captured.' : '❌ Failed: '+d.error);
+  load();
+}
+
+async function del(name) {
+  await fetch('/api/auth-sessions/remove/'+encodeURIComponent(name), {method:'DELETE'});
+  load();
+}
+
+load();
+</script>
+{% endblock %}

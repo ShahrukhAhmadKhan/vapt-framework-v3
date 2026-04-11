@@ -1,0 +1,8 @@
+reports/
+__pycache__/
+*.pyc
+.venv/
+.env
+*.json
+!config/scope_template.json
+.DS_Store

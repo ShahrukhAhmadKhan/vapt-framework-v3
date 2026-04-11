@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Reports — VAPT-Framework v2{% endblock %}
+{% block page_ttl %}Reports{% endblock %}
+{% block page_sub %}All generated scan reports{% endblock %}
+{% block content %}
+<div class="card fi">
+  <div class="card-hd">
+    <div class="card-ttl">Scan Reports</div>
+    <a href="/scan" class="btn btn-p btn-sm">+ New Scan</a>
+  </div>
+  {% if reports %}
+  <div class="tw">
+    <table>
+      <thead><tr><th>Session</th><th>Created</th><th>Formats</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td class="tm tsm">{{ r.name }}</td>
+          <td class="td2 tsm">{{ r.created[:19] }}</td>
+          <td><span class="badge bp">HTML</span> <span class="badge bl">JSON</span> <span class="badge bi">TXT</span></td>
+          <td><a href="{{ r.url }}" class="btn btn-o btn-sm" target="_blank">Open →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:56px;color:var(--dim)">
+    <div style="font-size:48px;margin-bottom:16px">📊</div>
+    <div>No reports yet. <a href="/scan" class="ta">Run a scan →</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
