@@ -179,7 +179,7 @@ python3 app.py
 **Shahrukh Ahmad Khan**
 - 🎓 MSc Cybersecurity — University of Cambridge
 - 🔐 Information Security Analyst | Penetration Tester | 5+ years VAPT
-- 🏅 CAP | Practical Ethical Hacking | CCNA | PAF IT Academy
+- 🏅 CAP | Practical Ethical Hacking | CCNA | IT Academy
 - 🔗 [LinkedIn](https://www.linkedin.com/in/shahrukhkhan-42659a20) | [GitHub](https://github.com/ShahrukhAhmadKhan)
 
 ---
